@@ -1,0 +1,5 @@
+{
+  "name": "CalcNote",
+  "description": "A beautiful, visual mathematical formula editor powered by Gemini. Compose complex equations intuitively and get instant AI-powered solutions.",
+  "requestFramePermissions": []
+}
