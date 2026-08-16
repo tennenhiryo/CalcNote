@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import katex from 'katex';
 import { MATH_BUTTONS } from '../constants';
 import { ButtonCategory, MathButton, KeypadTab } from '../types';
@@ -9,9 +9,55 @@ interface KeypadProps {
   onButtonPress: (btn: MathButton) => void;
 }
 
+const RECENT_STORAGE_KEY = 'calcnote_recent_symbols';
+const MAX_RECENT = 8;
+// Only "complex symbol" categories are worth quick-access; numbers and
+// controls (delete/undo/cursor) are already one tap away on the basic tab.
+const RECENT_ELIGIBLE_CATEGORIES = new Set([
+  ButtonCategory.FUNCTION,
+  ButtonCategory.OPERATION,
+  ButtonCategory.VARIABLE,
+]);
+
+const loadRecentIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem(RECENT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
 const Keypad: React.FC<KeypadProps> = ({ onButtonPress }) => {
   const [activeTab, setActiveTab] = useState<KeypadTab>('basic');
-  
+  const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentIds());
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(recentIds));
+    } catch {
+      // localStorage unavailable (e.g. private mode) - recents just won't persist.
+    }
+  }, [recentIds]);
+
+  const handlePress = (btn: MathButton) => {
+    if ('vibrate' in navigator) {
+      navigator.vibrate(10);
+    }
+
+    if (RECENT_ELIGIBLE_CATEGORIES.has(btn.category)) {
+      setRecentIds(prev => [btn.id, ...prev.filter(id => id !== btn.id)].slice(0, MAX_RECENT));
+    }
+
+    onButtonPress(btn);
+  };
+
+  const recentButtons = recentIds
+    .map(id => MATH_BUTTONS.find(btn => btn.id === id))
+    .filter((btn): btn is MathButton => btn !== undefined);
+
   // Helper to render label (text or LaTeX)
   const renderLabel = (label: string) => {
     // Basic heuristics to decide if we should render as LaTeX
@@ -88,12 +134,32 @@ const Keypad: React.FC<KeypadProps> = ({ onButtonPress }) => {
         ))}
       </div>
 
+      {/* Recently Used Symbols - stays put across tab switches to cut down on searching */}
+      {recentButtons.length > 0 && (
+        <div className="flex items-center gap-2 px-1 overflow-x-auto scrollbar-hide">
+          {recentButtons.map((btn) => (
+            <button
+              key={`recent-${btn.id}`}
+              onClick={() => handlePress(btn)}
+              className={`
+                relative flex-none w-11 h-11 rounded-lg flex items-center justify-center text-base
+                transition-all duration-150 active:scale-90 shadow-md shadow-black/20 border border-zinc-800/50
+                ${getButtonColor(btn.category)}
+              `}
+              aria-label={btn.description || btn.label}
+            >
+              {renderLabel(btn.label)}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Button Grid */}
       <div className={`grid ${gridColsClass} gap-2 p-2 md:p-3 bg-zinc-900/50 rounded-xl border border-zinc-800/50`}>
         {filteredButtons.map((btn) => (
           <button
             key={btn.id}
-            onClick={() => onButtonPress(btn)}
+            onClick={() => handlePress(btn)}
             className={`
               relative ${buttonHeightClass} rounded-lg md:rounded-xl flex items-center justify-center
               transition-all duration-150 active:scale-95 shadow-lg shadow-black/20

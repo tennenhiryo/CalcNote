@@ -816,9 +816,10 @@ const App: React.FC = () => {
             value={expression}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            className="absolute opacity-0 w-px h-px overflow-hidden" 
+            className="absolute opacity-0 w-px h-px overflow-hidden"
             autoFocus
             autoComplete="off"
+            inputMode="none"
           />
           
           <div onClick={() => inputRef.current?.focus()} className="flex-1 h-full min-h-0">
